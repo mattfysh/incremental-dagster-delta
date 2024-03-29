@@ -1,0 +1,4 @@
+dagster==1.6.13
+dagster-webserver==1.6.13
+
+faker==24.4.0
