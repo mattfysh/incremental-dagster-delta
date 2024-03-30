@@ -82,6 +82,9 @@ class DeltaIOManager(ConfigurableIOManager):
         return os.path.join(self.tables_root, delta_path)
 
     def handle_output(self, context: OutputContext, df: pl.DataFrame) -> None:
+        if len(df) == 0:
+            return
+
         table_path = self._get_table_path(context)
         write_opts = {}
 

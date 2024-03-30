@@ -1,7 +1,29 @@
 import polars as pl
-from dagster import asset, AssetKey, AssetExecutionContext, ResourceParam
+from dagster import (
+    asset,
+    DagsterEventType,
+    AssetExecutionContext,
+    ResourceParam,
+    EventRecordsFilter,
+)
 from ..partitions import daily_partitions
 from ..delta_io import DeltaIOManager
+
+
+def get_watermark(context: AssetExecutionContext):
+    events = context.instance.get_event_records(
+        EventRecordsFilter(
+            event_type=DagsterEventType.ASSET_MATERIALIZATION,
+            asset_key=context.asset_key,
+            asset_partitions=[context.partition_key],
+        ),
+        ascending=False,
+    )
+    if len(events) == 0:
+        return None
+    latest_event = events[0].event_log_entry.dagster_event
+    metadata = latest_event.event_specific_data.materialization.metadata
+    return metadata.get("watermark")
 
 
 @asset(
@@ -21,15 +43,13 @@ def processed(
 
     files_to_process = listing
     if not delta_io_manager.refresh:
-        last = context.instance.get_latest_materialization_event(
-            AssetKey(["processed", day])
-        )
-        if last:
-            watermark = last.asset_materialization.metadata.get("watermark")
-            if watermark:
-                files_to_process = listing[watermark.value :]
+        watermark = get_watermark(context)
+        if watermark:
+            print("Applying watermark value to listing:", watermark.value)
+            files_to_process = listing[watermark.value :]
 
     data = []
+    print(f"Porcessing {len(files_to_process)} files...")
     for filename in files_to_process:
         with open(f"files_to_ingest/day={day}/{filename}", "r") as file:
             word = file.read()

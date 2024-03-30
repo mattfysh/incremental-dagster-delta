@@ -1,3 +1,12 @@
+watermark bug = last is None?
+
+> delta -> delta downstream incremental
+run generate + incremental processed
+should build up a bunch of files in day=30
+how is a compact() reflected in the txn log?
+
+
+
 # dagster + delta - incremental compute prototype
 
 * all workloads are incremental by default
@@ -5,7 +14,6 @@
 * the ingested file listing asset will refresh if not run by the sensor
 
 
-> delta -> delta downstream incremental
 
 
 
@@ -26,3 +34,4 @@
 # todo
 
 - when mapping partition key to physical partitions for Multi, find time key (split by '|')
+-

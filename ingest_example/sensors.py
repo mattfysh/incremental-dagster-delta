@@ -22,19 +22,19 @@ Cursor = dict[str, set[str]]  # partition -> set of filenames
     job=define_asset_job("ingest_job", selection=AssetSelection.keys("listing"))
 )
 def ingest_sensor(context: SensorEvaluationContext):
-    curr_cursor = defaultdict(set)
-    prev_cursor: Optional[Cursor] = (
-        {k: set(v) for k, v in json.loads(context.cursor).items()}
-        if context.cursor
-        else {}
-    )
-
+    curr_cursor: Cursor = defaultdict(set)
     curr_time = datetime.now()
-    prev_time = (
-        datetime.fromtimestamp(context.last_sensor_start_time)
-        if context.last_sensor_start_time
-        else None
-    )
+
+    prev_cursor: Cursor = {}
+    prev_time = None
+
+    if context.cursor:
+        obj = json.loads(context.cursor)
+        prev_cursor = {k: set(v) for k, v in obj[0].items()}
+        # NOTE: ideally we would use `context.last_tick_start_time` but it doesn't exist
+        #   and last_tick_completion_time is (a) too late; (b) exhibiting buggy behaviour
+        #   where it returns a time that is before the actual completion time)
+        prev_time = datetime.fromtimestamp(obj[1])
 
     run_requests = []
     days = set([curr_time.strftime("%Y-%m-%d")])
@@ -70,6 +70,11 @@ def ingest_sensor(context: SensorEvaluationContext):
         return SkipReason("No new ingestion files found")
 
     return SensorResult(
-        cursor=json.dumps({k: list(v) for k, v in curr_cursor.items()}),
+        cursor=json.dumps(
+            [
+                {k: list(v) for k, v in curr_cursor.items()},
+                curr_time.timestamp(),
+            ]
+        ),
         run_requests=run_requests,
     )
