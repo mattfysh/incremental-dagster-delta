@@ -1,10 +1,7 @@
 import polars as pl
-from dagster import asset, AssetKey, AssetExecutionContext, Config
+from dagster import asset, AssetKey, AssetExecutionContext, ResourceParam
 from ..partitions import daily_partitions
-
-
-class ProcessingConfig(Config):
-    full_refresh: bool = False
+from ..delta_io import DeltaIOManager
 
 
 @asset(
@@ -16,12 +13,14 @@ class ProcessingConfig(Config):
     },
 )
 def processed(
-    context: AssetExecutionContext, listing: list[str], config: ProcessingConfig
+    context: AssetExecutionContext,
+    listing: list[str],
+    delta_io_manager: ResourceParam[DeltaIOManager],
 ) -> pl.DataFrame:
     day = context.partition_key
 
     files_to_process = listing
-    if not config.full_refresh:
+    if not delta_io_manager.refresh:
         last = context.instance.get_latest_materialization_event(
             AssetKey(["processed", day])
         )
